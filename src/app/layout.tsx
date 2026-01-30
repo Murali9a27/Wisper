@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import SocketProvider from "@/providers/SocketProvider";
 import Navbar from "@/components/Navbar";
 
 const geistSans = Geist({
@@ -26,8 +27,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <Navbar />   {/* ✅ always visible */}
-        {children}   {/* ✅ page content */}
+        <SocketProvider>          
+          <Navbar />   {/* ✅ always visible */}
+          {children}   {/* ✅ page content */}
+        </SocketProvider>
       </body>
     </html>
   );
