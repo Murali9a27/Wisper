@@ -1,0 +1,10 @@
+🧠 Big Concepts To Understand
+
+✔ Client vs Server components
+✔ Client socket vs Server socket
+✔ Socket connection lifecycle
+✔ How WhatsApp-style “online” works
+✔ Why sockets stay alive
+✔ Why switching users ≠ new socket
+✔ Why hydration warnings happen
+✔ When warnings can be ignored
