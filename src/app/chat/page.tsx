@@ -1,54 +1,102 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { socket } from "@/lib/socket";
+import { io, Socket } from "socket.io-client";
 
-export default function ChatPage() {
+let socket: Socket;
+
+interface ChatMessage {
+  message: string;
+  userId: string;
+  time: number;
+}
+
+export default function Chat() {
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<string[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
-  const roomId = "chat_demo";
+  const userId = "user_1"; // later make dynamic
+  const roomId = "room_1";
 
+  // ============================
+  // Connect Socket
+  // ============================
   useEffect(() => {
-    socket.connect();
-    socket.emit("user:join", "user_1");
+    socket = io("http://localhost:3001"); // your backend url
+
+    socket.emit("user:join", userId);
     socket.emit("chat:join", { roomId });
 
-    socket.on("chat:message", (data) => {
-      setMessages((prev) => [...prev, data.message]);
+    socket.on("chat:message", (data: ChatMessage) => {
+      setMessages((prev) => [...prev, data]);
     });
 
     return () => {
-      socket.off("chat:message");
+      socket.disconnect();
     };
   }, []);
 
+  // ============================
+  // Send Message
+  // ============================
   const sendMessage = () => {
+    if (!message.trim()) return;
+
     socket.emit("chat:message", {
       roomId,
       message,
     });
-    setMessages((prev) => [...prev, message]);
+
     setMessage("");
   };
 
-  return (
-    <div style={{ padding: 20 }}>
-      <h2>Wisper Chat</h2>
+  // ============================
+  // Enter Key Support
+  // ============================
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      sendMessage();
+    }
+  };
 
-      <div>
+  return (
+    <div style={{ padding: "20px" }}>
+      <h2>Chat Room</h2>
+
+      {/* Messages */}
+      <div
+        style={{
+          height: "300px",
+          border: "1px solid gray",
+          padding: "10px",
+          overflowY: "auto",
+          marginBottom: "10px",
+        }}
+      >
         {messages.map((msg, i) => (
-          <div key={i}>{msg}</div>
+          <div key={i}>
+            <strong>{msg.userId}:</strong> {msg.message}
+          </div>
         ))}
       </div>
 
+      {/* Input */}
       <input
+        type="text"
+        placeholder="Type message..."
         value={message}
         onChange={(e) => setMessage(e.target.value)}
-        placeholder="Type message"
+        onKeyDown={handleKeyPress}
+        style={{ width: "70%", padding: "5px" }}
       />
 
-      <button onClick={sendMessage}>Send</button>
+      {/* Button */}
+      <button
+        onClick={sendMessage}
+        style={{ marginLeft: "10px", padding: "5px 15px" }}
+      >
+        Send
+      </button>
     </div>
   );
 }

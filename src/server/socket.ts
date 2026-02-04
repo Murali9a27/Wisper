@@ -1,10 +1,5 @@
 import { Server, Socket } from "socket.io";
 
-interface User {
-  userId: string;
-  socketId: string;
-}
-
 const onlineUsers = new Map<string, string>();
 
 export function setupSocket(server: any) {
@@ -15,26 +10,41 @@ export function setupSocket(server: any) {
   io.on("connection", (socket: Socket) => {
     console.log("🟢 Connected:", socket.id);
 
-    // User comes online
+    // ============================
+    // User Join
+    // ============================
     socket.on("user:join", (userId: string) => {
+      socket.data.userId = userId; // ✅ attach user to socket
       onlineUsers.set(userId, socket.id);
+
       console.log(`✅ User online: ${userId}`);
     });
 
-    // Join chat room
+    // ============================
+    // Join Room
+    // ============================
     socket.on("chat:join", ({ roomId }) => {
       socket.join(roomId);
       console.log(`📥 Joined room: ${roomId}`);
     });
 
-    // Receive message
+    // ============================
+    // Message Handler
+    // ============================
     socket.on("chat:message", ({ roomId, message }) => {
-      socket.to(roomId).emit("chat:message", {
+      const msgData = {
         message,
-        from: socket.id,
-      });
+        userId: socket.data.userId,
+        time: Date.now(),
+      };
+
+      // Send to ALL users in room (including sender)
+      io.to(roomId).emit("chat:message", msgData);
     });
 
+    // ============================
+    // Disconnect
+    // ============================
     socket.on("disconnect", () => {
       console.log("🔴 Disconnected:", socket.id);
 
