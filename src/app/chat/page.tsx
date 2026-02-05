@@ -1,34 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { io, Socket } from "socket.io-client";
+import { socket } from "@/lib/socket";
 
-let socket: Socket;
-
-interface ChatMessage {
-  message: string;
-  userId: string;
-  time: number;
-}
-
-export default function Chat() {
+export default function ChatPage() {
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<string[]>([]);
 
-  const userId = "user_1"; // later make dynamic
-  const roomId = "room_1";
+  const roomId = "chat_demo";
 
-  // ============================
-  // Connect Socket
-  // ============================
   useEffect(() => {
-    socket = io("http://localhost:3001"); // your backend url
+    socket.connect();
 
-    socket.emit("user:join", userId);
-    socket.emit("chat:join", { roomId });
+    socket.on("connect", () => {
+      console.log("✅ Connected:", socket.id);
 
-    socket.on("chat:message", (data: ChatMessage) => {
-      setMessages((prev) => [...prev, data]);
+      socket.emit("user:join", "user_1");
+      socket.emit("chat:join", { roomId });
+    });
+
+    socket.on("chat:message", (data) => {
+      console.log("📩 Received:", data.message);
+
+      setMessages((prev) => [...prev, data.message]);
     });
 
     return () => {
@@ -36,11 +30,10 @@ export default function Chat() {
     };
   }, []);
 
-  // ============================
-  // Send Message
-  // ============================
   const sendMessage = () => {
     if (!message.trim()) return;
+
+    console.log("📤 Sending:", message);
 
     socket.emit("chat:message", {
       roomId,
@@ -50,53 +43,23 @@ export default function Chat() {
     setMessage("");
   };
 
-  // ============================
-  // Enter Key Support
-  // ============================
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      sendMessage();
-    }
-  };
-
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Chat Room</h2>
+    <div style={{ padding: 20 }}>
+      <h2>Wisper Chat</h2>
 
-      {/* Messages */}
-      <div
-        style={{
-          height: "300px",
-          border: "1px solid gray",
-          padding: "10px",
-          overflowY: "auto",
-          marginBottom: "10px",
-        }}
-      >
+      <div style={{ minHeight: 200, border: "1px solid #ccc", marginBottom: 10 }}>
         {messages.map((msg, i) => (
-          <div key={i}>
-            <strong>{msg.userId}:</strong> {msg.message}
-          </div>
+          <div key={i}>{msg}</div>
         ))}
       </div>
 
-      {/* Input */}
       <input
-        type="text"
-        placeholder="Type message..."
         value={message}
         onChange={(e) => setMessage(e.target.value)}
-        onKeyDown={handleKeyPress}
-        style={{ width: "70%", padding: "5px" }}
+        placeholder="Type message"
       />
 
-      {/* Button */}
-      <button
-        onClick={sendMessage}
-        style={{ marginLeft: "10px", padding: "5px 15px" }}
-      >
-        Send
-      </button>
+      <button onClick={sendMessage}>Send</button>
     </div>
   );
 }

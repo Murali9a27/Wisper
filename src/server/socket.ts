@@ -32,15 +32,13 @@ export function setupSocket(server: any) {
     // Message Handler
     // ============================
     socket.on("chat:message", ({ roomId, message }) => {
-      const msgData = {
-        message,
-        userId: socket.data.userId,
-        time: Date.now(),
-      };
+      console.log("📩 Server got:", message);
 
-      // Send to ALL users in room (including sender)
-      io.to(roomId).emit("chat:message", msgData);
+      io.to(roomId).emit("chat:message", {
+        message,
+      });
     });
+
 
     // ============================
     // Disconnect
