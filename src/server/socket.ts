@@ -31,12 +31,14 @@ export function setupSocket(server: any) {
     // ============================
     // Message Handler
     // ============================
-    socket.on("chat:message", ({ roomId, message }) => {
-      console.log("📩 Server got:", message);
-
-      io.to(roomId).emit("chat:message", {
+    socket.on("chat:message", ({ roomId, message, userId }) => {
+      const payload = {
         message,
-      });
+        userId,
+        time: new Date().toISOString(),
+      };
+
+      io.to(roomId).emit("chat:message", payload);
     });
 
 
