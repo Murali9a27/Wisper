@@ -14,11 +14,13 @@ export function setupSocket(server: any) {
     // User Join
     // ============================
     socket.on("user:join", (userId: string) => {
-      socket.data.userId = userId; // ✅ attach user to socket
       onlineUsers.set(userId, socket.id);
 
       console.log(`✅ User online: ${userId}`);
+
+      io.emit("users:online", Array.from(onlineUsers.keys()));
     });
+
 
     // ============================
     // Join Room
@@ -51,10 +53,14 @@ export function setupSocket(server: any) {
       for (const [userId, sId] of onlineUsers.entries()) {
         if (sId === socket.id) {
           onlineUsers.delete(userId);
+
           console.log(`❌ User offline: ${userId}`);
+
+          io.emit("users:online", Array.from(onlineUsers.keys()));
           break;
         }
       }
     });
+
   });
 }
