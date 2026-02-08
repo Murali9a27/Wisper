@@ -17,29 +17,27 @@ export default function ChatPage() {
   const roomId = "chat_demo";
 
   useEffect(() => {
-    socket.connect();
+    if (!socket.connected) {
+      socket.connect();
+    }
 
-    socket.on("connect", () => {
-      console.log("✅ Connected:", socket.id);
+    socket.emit("user:join", "user_1");
+    socket.emit("chat:join", { roomId });
 
-      socket.emit("user:join", "user_1");
-      socket.emit("chat:join", { roomId });
-    });
-
-    socket.on("chat:message", (data: ChatMessage) => {
+    const handleMessage = (data: ChatMessage) => {
       setMessages((prev) => [...prev, data]);
-    });
+    };
 
+    socket.on("chat:message", handleMessage);
 
     return () => {
-      socket.disconnect();
+      socket.off("chat:message", handleMessage);
     };
   }, []);
 
+
   const sendMessage = () => {
     if (!message.trim()) return;
-
-    console.log("📤 Sending:", message);
 
     socket.emit("chat:message", {
       roomId,
@@ -47,9 +45,9 @@ export default function ChatPage() {
       userId: "user_1",
     });
 
-
     setMessage("");
   };
+
 
   return (
     <div style={{ padding: 20 }}>
