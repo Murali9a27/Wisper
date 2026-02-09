@@ -10,6 +10,20 @@ interface ChatMessage {
   time: string;
 }
 
+function getUserId() {
+  if (typeof window === "undefined") return "";
+
+  let id = localStorage.getItem("wisper_user");
+
+  if (!id) {
+    id = "user_" + Math.floor(1000 + Math.random() * 9000);
+    localStorage.setItem("wisper_user", id);
+  }
+
+  return id;
+}
+
+
 export default function ChatPage() {
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [message, setMessage] = useState("");
@@ -18,7 +32,8 @@ export default function ChatPage() {
 
 
   const roomId = "chat_demo";
-  const userId = "user_1"; // Later we will make this dynamic
+  const userId = getUserId();
+ // Later we will make this dynamic
 
   useEffect(() => {
     // Connect once
