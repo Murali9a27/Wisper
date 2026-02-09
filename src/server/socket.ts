@@ -62,5 +62,16 @@ export function setupSocket(server: any) {
       }
     });
 
+    // Typing start
+    socket.on("chat:typing", ({ roomId, userId }) => {
+      socket.to(roomId).emit("chat:typing", userId);
+    });
+
+    // Typing stop
+    socket.on("chat:stop", ({ roomId, userId }) => {
+      socket.to(roomId).emit("chat:stop", userId);
+    });
+
+
   });
 }

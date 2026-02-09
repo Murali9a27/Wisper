@@ -14,6 +14,8 @@ export default function ChatPage() {
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [typingUser, setTypingUser] = useState<string | null>(null);
+
 
   const roomId = "chat_demo";
   const userId = "user_1"; // Later we will make this dynamic
@@ -40,10 +42,24 @@ export default function ChatPage() {
       setOnlineUsers(users);
     });
 
+    // Someone is typing
+    socket.on("chat:typing", (user: string) => {
+      setTypingUser(user);
+    });
+
+    // Someone stopped typing
+    socket.on("chat:stop", () => {
+      setTypingUser(null);
+    });
+
+
     // Cleanup
     return () => {
       socket.off("chat:message", handleMessage);
       socket.off("users:online");
+      socket.off("chat:typing");
+      socket.off("chat:stop");
+
     };
   }, []);
 
@@ -84,6 +100,14 @@ export default function ChatPage() {
           </span>
         ))}
       </div>
+        
+
+
+      {typingUser && typingUser !== userId && (
+        <div style={{ fontStyle: "italic", color: "#666", marginBottom: 5 }}>
+          {typingUser} is typing...
+        </div>
+      )}
 
       {/* Chat Messages */}
       <div
@@ -111,12 +135,28 @@ export default function ChatPage() {
         <input
           style={{ flex: 1, padding: 8 }}
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={(e) => {
+            setMessage(e.target.value);
+
+            socket.emit("chat:typing", {
+              roomId,
+              userId,
+            });
+
+            // Stop typing after 1s
+            setTimeout(() => {
+              socket.emit("chat:stop", {
+                roomId,
+                userId,
+              });
+            }, 1000);
+          }}
           placeholder="Type message..."
           onKeyDown={(e) => {
             if (e.key === "Enter") sendMessage();
           }}
         />
+
 
         <button onClick={sendMessage}>Send</button>
       </div>
