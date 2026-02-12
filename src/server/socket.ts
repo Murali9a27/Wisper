@@ -21,7 +21,6 @@ export function setupSocket(server: any) {
       io.emit("users:online", Array.from(onlineUsers.keys()));
     });
 
-
     // ============================
     // Join Room
     // ============================
@@ -31,18 +30,42 @@ export function setupSocket(server: any) {
     });
 
     // ============================
-    // Message Handler
+    // Message Handler (FIXED)
     // ============================
-    socket.on("chat:message", ({ roomId, message, userId }) => {
-      const payload = {
+    socket.on("chat:message", (data) => {
+      const {
+        id,
+        from,
+        to,
         message,
-        userId,
-        time: new Date().toISOString(),
+        time,
+        status,
+        roomId,
+      } = data;
+
+      const payload = {
+        id,
+        from,
+        to,
+        message,
+        time,
+        status: "delivered",
+        roomId,
       };
 
-      io.to(roomId).emit("chat:message", payload);
-    });
 
+      // Send to everyone in room
+      io.to(roomId).emit("chat:message", payload);
+
+      // Notify receiver
+      const receiverSocket = onlineUsers.get(to);
+
+      if (receiverSocket) {
+        io.to(receiverSocket).emit("message:delivered", {
+          messageId: id,
+        });
+      }
+    });
 
     // ============================
     // Disconnect
@@ -62,16 +85,15 @@ export function setupSocket(server: any) {
       }
     });
 
-    // Typing start
-    socket.on("chat:typing", ({ roomId, userId }) => {
-      socket.to(roomId).emit("chat:typing", userId);
+    // ============================
+    // Seen
+    // ============================
+    socket.on("message:seen", ({ messageId, to }) => {
+      const socketId = onlineUsers.get(to);
+
+      if (socketId) {
+        io.to(socketId).emit("message:seen", { messageId });
+      }
     });
-
-    // Typing stop
-    socket.on("chat:stop", ({ roomId, userId }) => {
-      socket.to(roomId).emit("chat:stop", userId);
-    });
-
-
   });
 }
