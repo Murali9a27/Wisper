@@ -41,15 +41,18 @@ export default function ChatPage() {
     socket.emit("chat:join", { roomId });
 
     // Receive messages
-    socket.on("chat:message", (data: ChatMessage) => {
+    socket.on("chat:message", (data) => {
       setMessages((prev) => [...prev, data]);
 
-      // Mark as seen
-      socket.emit("message:seen", {
-        messageId: data.id,
-        to: data.from,
-      });
+      // If I am the receiver, mark as seen
+      if (data.to === userId) {
+        socket.emit("message:seen", {
+          messageId: data.id,
+          from: data.from,
+        });
+      }
     });
+
 
     // Online users
     socket.on("users:online", (users: string[]) => {

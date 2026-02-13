@@ -33,15 +33,7 @@ export function setupSocket(server: any) {
     // Message Handler (FIXED)
     // ============================
     socket.on("chat:message", (data) => {
-      const {
-        id,
-        from,
-        to,
-        message,
-        time,
-        status,
-        roomId,
-      } = data;
+      const { id, from, to, message, time, roomId } = data;
 
       const payload = {
         id,
@@ -50,22 +42,21 @@ export function setupSocket(server: any) {
         message,
         time,
         status: "delivered",
-        roomId,
       };
 
-
-      // Send to everyone in room
-      io.to(roomId).emit("chat:message", payload);
-
-      // Notify receiver
+      // Send ONLY to receiver
       const receiverSocket = onlineUsers.get(to);
 
       if (receiverSocket) {
-        io.to(receiverSocket).emit("message:delivered", {
+        io.to(receiverSocket).emit("chat:message", payload);
+
+        // Notify sender → delivered
+        socket.emit("message:delivered", {
           messageId: id,
         });
       }
     });
+
 
     // ============================
     // Disconnect
@@ -88,12 +79,17 @@ export function setupSocket(server: any) {
     // ============================
     // Seen
     // ============================
-    socket.on("message:seen", ({ messageId, to }) => {
-      const socketId = onlineUsers.get(to);
+    socket.on("message:seen", (data) => {
+      const { messageId, from } = data;
 
-      if (socketId) {
-        io.to(socketId).emit("message:seen", { messageId });
+      const senderSocket = onlineUsers.get(from);
+
+      if (senderSocket) {
+        io.to(senderSocket).emit("message:seen", {
+          messageId,
+        });
       }
     });
+
   });
 }
