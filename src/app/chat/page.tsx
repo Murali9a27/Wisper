@@ -26,7 +26,7 @@ export default function ChatPage() {
 
   const roomId = "chat_demo";
 
-  // TEMP: for demo (first online user except me)
+  // Receiver (first online user except me)
   const receiver = onlineUsers.find((u) => u !== userId);
 
   // ============================
@@ -41,18 +41,17 @@ export default function ChatPage() {
     socket.emit("chat:join", { roomId });
 
     // Receive messages
-    socket.on("chat:message", (data) => {
-      setMessages((prev) => [...prev, data]);
+    socket.on("chat:message", (data: ChatMessage) => {
+      setMessages((prev) => {
+        const exists = prev.find((m) => m.id === data.id);
 
-      // If I am the receiver, mark as seen
-      if (data.to === userId) {
-        socket.emit("message:seen", {
-          messageId: data.id,
-          from: data.from,
-        });
-      }
+        if (exists) return prev;
+
+        return [...prev, data];
+      });
+
+      
     });
-
 
     // Online users
     socket.on("users:online", (users: string[]) => {
@@ -82,11 +81,32 @@ export default function ChatPage() {
     };
   }, [userId]);
 
+  useEffect(() => {
+    const unreadMessages = messages.filter(
+      (msg) =>
+        msg.to === userId &&
+        msg.status === "delivered" // Only after delivered
+    );
+
+    if (unreadMessages.length === 0) return;
+
+    unreadMessages.forEach((msg) => {
+      socket.emit("message:seen", {
+        messageId: msg.id,
+        from: msg.from,
+      });
+    });
+  }, [messages, userId]);
+
+
+
+
   // ============================
   // Send Message
   // ============================
   const sendMessage = () => {
-    if (!message.trim() || !receiver) return;
+    if (!message.trim()) return;
+    if (!receiver) return;
 
     const msg: ChatMessage = {
       id: crypto.randomUUID(),
@@ -97,9 +117,15 @@ export default function ChatPage() {
       status: "sent",
     };
 
-    // Optimistic UI
-    // setMessages((prev) => [...prev, msg]);
+    // Optimistic update
+    setMessages((prev) => {
+      const exists = prev.find((m) => m.id === msg.id);
+      if (exists) return prev;
+      return [...prev, msg];
+    });
 
+
+    // Send to server
     socket.emit("chat:message", {
       ...msg,
       roomId,

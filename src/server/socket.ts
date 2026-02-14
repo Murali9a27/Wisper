@@ -33,7 +33,7 @@ export function setupSocket(server: any) {
     // Message Handler (FIXED)
     // ============================
     socket.on("chat:message", (data) => {
-      const { id, from, to, message, time, roomId } = data;
+      const { id, from, to, message, time } = data;
 
       const payload = {
         id,
@@ -44,18 +44,25 @@ export function setupSocket(server: any) {
         status: "delivered",
       };
 
-      // Send ONLY to receiver
       const receiverSocket = onlineUsers.get(to);
 
       if (receiverSocket) {
+        // Send to receiver
         io.to(receiverSocket).emit("chat:message", payload);
 
-        // Notify sender → delivered
+        // Send back to sender
+        socket.emit("chat:message", {
+          ...payload,
+          status: "sent",
+        });
+
+        // Delivered
         socket.emit("message:delivered", {
           messageId: id,
         });
       }
     });
+
 
 
     // ============================
@@ -80,7 +87,7 @@ export function setupSocket(server: any) {
     // Seen
     // ============================
     socket.on("message:seen", (data) => {
-      const { messageId, from } = data;
+      const { messageId, from, to } = data;
 
       const senderSocket = onlineUsers.get(from);
 
@@ -90,6 +97,8 @@ export function setupSocket(server: any) {
         });
       }
     });
+    
+
 
   });
 }
