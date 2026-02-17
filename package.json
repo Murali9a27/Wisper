@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "cross-env NEXT_DISABLE_TURBOPACK=1 tsx src/server/index.ts",
+    "dev": "cross-env NEXT_DISABLE_TURBOPACK=1 tsx --env-file=.env src/server/index.ts",
     "build": "next build",
     "start": "cross-env NODE_ENV=production tsx src/server/index.ts",
     "lint": "eslint"
   },
   "dependencies": {
     "dotenv": "^17.3.1",
+    "mongodb": "^7.1.0",
     "mongoose": "^9.2.1",
     "next": "^16.1.6",
     "react": "19.2.3",
