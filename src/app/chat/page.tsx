@@ -67,6 +67,13 @@ export default function ChatPage() {
       );
     });
 
+    socket.emit("chat:history", { roomId });
+
+    socket.on("chat:history", (messages) => {
+      setMessages(messages);
+    });
+
+
     // Seen
     socket.on("message:seen", ({ messageId }) => {
       setMessages((prev) =>

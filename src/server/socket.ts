@@ -1,4 +1,6 @@
 import { Server, Socket } from "socket.io";
+import Message from "./model/Message";
+
 
 const onlineUsers = new Map<string, string>();
 
@@ -32,35 +34,69 @@ export function setupSocket(server: any) {
     // ============================
     // Message Handler (FIXED)
     // ============================
-    socket.on("chat:message", (data) => {
-      const { id, from, to, message, time } = data;
+    socket.on("chat:message", async (data) => {
+      try {
+        const {
+          id,
+          from,
+          to,
+          message,
+          time,
+          roomId,
+        } = data;
 
-      const payload = {
-        id,
-        from,
-        to,
-        message,
-        time,
-        status: "delivered",
-      };
-
-      const receiverSocket = onlineUsers.get(to);
-
-      if (receiverSocket) {
-        // Send to receiver
-        io.to(receiverSocket).emit("chat:message", payload);
-
-        // Send back to sender
-        socket.emit("chat:message", {
-          ...payload,
+        // 1️⃣ Save to DB
+        const savedMsg = await Message.create({
+          from,
+          to,
+          message,
+          roomId,
           status: "sent",
         });
 
-        // Delivered
-        socket.emit("message:delivered", {
-          messageId: id,
+        // 2️⃣ Send to room
+        io.to(roomId).emit("chat:message", {
+          id: savedMsg._id,
+          from,
+          to,
+          message,
+          time,
+          roomId,
+          status: savedMsg.status,
         });
+
+        // 3️⃣ Mark delivered if online
+        const receiverSocket = onlineUsers.get(to);
+
+        if (receiverSocket) {
+          await Message.findByIdAndUpdate(savedMsg._id, {
+            status: "delivered",
+          });
+
+          io.to(receiverSocket).emit("message:delivered", {
+            messageId: savedMsg._id,
+          });
+        }
+
+      } catch (err) {
+        console.error("Message save error:", err);
       }
+    });
+
+    socket.on("chat:history", async ({ roomId }) => {
+      const messages = await Message.find({ roomId })
+        .sort({ createdAt: 1 })
+        .limit(100);
+
+      socket.emit("chat:history", messages);
+    });
+
+    socket.on("message:seen", async ({ messageId }) => {
+      await Message.findByIdAndUpdate(messageId, {
+        status: "seen",
+      });
+
+      io.emit("message:seen", { messageId });
     });
 
 

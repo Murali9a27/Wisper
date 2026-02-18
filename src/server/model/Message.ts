@@ -1,6 +1,15 @@
-import mongoose from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
-const messageSchema = new mongoose.Schema(
+export interface IMessage extends Document {
+  from: string;
+  to: string;
+  message: string;
+  roomId: string;
+  status: "sent" | "delivered" | "seen";
+  createdAt: Date;
+}
+
+const MessageSchema = new Schema<IMessage>(
   {
     from: {
       type: String,
@@ -17,22 +26,21 @@ const messageSchema = new mongoose.Schema(
       required: true,
     },
 
+    roomId: {
+      type: String,
+      required: true,
+    },
+
     status: {
       type: String,
       enum: ["sent", "delivered", "seen"],
       default: "sent",
     },
-
-    time: {
-      type: Date,
-      default: Date.now,
-    },
   },
   {
-    timestamps: true,
+    timestamps: true, // adds createdAt & updatedAt
   }
 );
 
-export const Message =
-  mongoose.models.Message ||
-  mongoose.model("Message", messageSchema);
+export default mongoose.models.Message ||
+  mongoose.model<IMessage>("Message", MessageSchema);
