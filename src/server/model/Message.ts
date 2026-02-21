@@ -1,32 +1,34 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document, Types } from "mongoose";
 
 export interface IMessage extends Document {
-  from: string;
-  to: string;
-  message: string;
-  roomId: string;
+  sender: Types.ObjectId;
+  receiver?: Types.ObjectId;   // for private chat
+  group?: Types.ObjectId;      // for group chat
+  content: string;
   status: "sent" | "delivered" | "seen";
   createdAt: Date;
+  updatedAt: Date;
 }
 
 const MessageSchema = new Schema<IMessage>(
   {
-    from: {
-      type: String,
+    sender: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: true,
     },
 
-    to: {
-      type: String,
-      required: true,
+    receiver: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
 
-    message: {
-      type: String,
-      required: true,
+    group: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Group",
     },
 
-    roomId: {
+    content: {
       type: String,
       required: true,
     },
@@ -38,7 +40,7 @@ const MessageSchema = new Schema<IMessage>(
     },
   },
   {
-    timestamps: true, // adds createdAt & updatedAt
+    timestamps: true,
   }
 );
 

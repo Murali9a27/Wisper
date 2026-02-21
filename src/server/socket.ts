@@ -1,5 +1,6 @@
 import { Server, Socket } from "socket.io";
 import Message from "./model/Message";
+import Group from "./model/Group"
 
 
 const onlineUsers = new Map<string, string>();
@@ -97,6 +98,41 @@ export function setupSocket(server: any) {
       });
 
       io.emit("message:seen", { messageId });
+    });
+
+    socket.on("group:join", async (groupId) => {
+      const userId = socket.data.userId;
+
+      const group = await Group.findById(groupId);
+
+      if (!group) return;
+
+      const isMember = group.members.includes(userId);
+
+      if (!isMember) {
+        return socket.emit("error", "Not authorized");
+      }
+
+      socket.join(groupId);
+    });
+
+    socket.on("group:message", async ({ groupId, content }) => {
+      const userId = socket.data.userId;
+
+      const group = await Group.findById(groupId);
+
+      if (!group) return;
+
+      const isMember = group.members.includes(userId);
+      if (!isMember) return;
+
+      const message = await Message.create({
+        sender: userId,
+        groupId,
+        content,
+      });
+
+      io.to(groupId).emit("group:message", message);
     });
 
 
