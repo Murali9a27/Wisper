@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect } from "react";
+import { createContext, useContext } from "react";
 import { socket } from "@/lib/socket";
 
 const SocketContext = createContext(socket);
@@ -12,14 +12,6 @@ export default function SocketProvider({
 }: {
   children: React.ReactNode;
 }) {
-  useEffect(() => {
-    socket.connect();
-
-    return () => {
-      socket.disconnect();
-    };
-  }, []);
-
   return (
     <SocketContext.Provider value={socket}>
       {children}

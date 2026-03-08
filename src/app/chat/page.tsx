@@ -3,157 +3,102 @@
 import { useEffect, useState } from "react";
 import { socket } from "@/lib/socket";
 
-/* Message Type */
-interface ChatMessage {
-  id: string;
-  from: string;
-  to: string;
-  message: string;
-  time: string;
+interface Message {
+  _id: string;
+  sender: string;
+  receiver: string;
+  content: string;
   status: "sent" | "delivered" | "seen";
 }
 
-// Generate random user id
-function generateUserId() {
-  return "user_" + Math.floor(Math.random() * 10000);
+function parseJwt(token: string) {
+  const decoded = JSON.parse(atob(token.split(".")[1]));
+  return { id: decoded.userId };
 }
 
 export default function ChatPage() {
-  const [userId] = useState(generateUserId);
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const [text, setText] = useState("");
 
-  const roomId = "chat_demo";
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("token")
+      : null;
 
-  // Receiver (first online user except me)
-  const receiver = onlineUsers.find((u) => u !== userId);
+  const user = token ? parseJwt(token) : null;
+  const userId = user?.id;
 
-  // ============================
-  // Connect Socket
-  // ============================
+  const receiverId = onlineUsers.find((id) => id !== userId);
+
+  // CONNECT
   useEffect(() => {
-    if (!socket.connected) {
-      socket.connect();
-    }
+    if (!token) return;
 
-    socket.emit("user:join", userId);
-    socket.emit("chat:join", { roomId });
+    socket.auth = { token };
+    socket.connect();
 
-    // Receive messages
-    socket.on("chat:message", (data: ChatMessage) => {
-      setMessages((prev) => {
-        const exists = prev.find((m) => m.id === data.id);
+    socket.on("users:online", setOnlineUsers);
 
-        if (exists) return prev;
-
-        return [...prev, data];
-      });
-
-      
+    socket.on("chat:message", (msg: Message) => {
+      setMessages((prev) => [...prev, msg]);
     });
 
-    // Online users
-    socket.on("users:online", (users: string[]) => {
-      setOnlineUsers(users);
+    socket.on("chat:history", (msgs: Message[]) => {
+      setMessages(msgs);
     });
 
-    // Delivered
-    socket.on("message:delivered", ({ messageId }) => {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId ? { ...m, status: "delivered" } : m
-        )
-      );
-    });
-
-    socket.emit("chat:history", { roomId });
-
-    socket.on("chat:history", (messages) => {
-      setMessages(messages);
-    });
-
-
-    // Seen
-    socket.on("message:seen", ({ messageId }) => {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId ? { ...m, status: "seen" } : m
-        )
-      );
-    });
-
-    return () => {
-      socket.off();
-    };
-  }, [userId]);
-
-  useEffect(() => {
-    const unreadMessages = messages.filter(
-      (msg) =>
-        msg.to === userId &&
-        msg.status === "delivered" // Only after delivered
+    socket.on(
+      "message:status:update",
+      ({ messageId, status }) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m._id === messageId ? { ...m, status } : m
+          )
+        );
+      }
     );
 
-    if (unreadMessages.length === 0) return;
-
-    unreadMessages.forEach((msg) => {
-      socket.emit("message:seen", {
-        messageId: msg.id,
-        from: msg.from,
-      });
-    });
-  }, [messages, userId]);
-
-
-
-
-  // ============================
-  // Send Message
-  // ============================
-  const sendMessage = () => {
-    if (!message.trim()) return;
-    if (!receiver) return;
-
-    const msg: ChatMessage = {
-      id: crypto.randomUUID(),
-      from: userId,
-      to: receiver,
-      message,
-      time: new Date().toISOString(),
-      status: "sent",
+    return () => {
+      socket.disconnect();
     };
+  }, []);
 
-    // Optimistic update
-    setMessages((prev) => {
-      const exists = prev.find((m) => m.id === msg.id);
-      if (exists) return prev;
-      return [...prev, msg];
+  // LOAD HISTORY
+  useEffect(() => {
+    if (!receiverId) return;
+    socket.emit("chat:history", {
+      otherUserId: receiverId,
     });
+  }, [receiverId]);
 
+  // AUTO SEEN
+  useEffect(() => {
+    messages.forEach((msg) => {
+      if (
+        msg.receiver === userId &&
+        msg.status === "delivered"
+      ) {
+        socket.emit("message:seen", {
+          messageId: msg._id,
+        });
+      }
+    });
+  }, [messages]);
 
-    // Send to server
+  const sendMessage = () => {
+    if (!text.trim() || !receiverId) return;
+
     socket.emit("chat:message", {
-      ...msg,
-      roomId,
+      receiverId,
+      content: text,
     });
 
-    setMessage("");
+    setText("");
   };
 
-  // Enter key support
-  const handleKey = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      sendMessage();
-    }
-  };
-
-  // ============================
-  // UI
-  // ============================
   return (
     <div style={{ padding: 20, maxWidth: 500 }}>
-
       <h2>Wisper Chat</h2>
 
       <p>
@@ -166,18 +111,19 @@ export default function ChatPage() {
 
       <div
         style={{
-          minHeight: 300,
           border: "1px solid #ccc",
+          height: 300,
+          overflowY: "auto",
           padding: 10,
           marginBottom: 10,
-          overflowY: "auto",
         }}
       >
         {messages.map((msg) => (
-          <div key={msg.id} style={{ marginBottom: 8 }}>
-            <b>{msg.from === userId ? "Me" : msg.from}</b>:{" "}
-            {msg.message}
-
+          <div key={msg._id}>
+            <b>
+              {msg.sender === userId ? "Me" : msg.sender}
+            </b>
+            : {msg.content}
             <span style={{ fontSize: 12, marginLeft: 6 }}>
               ({msg.status})
             </span>
@@ -186,13 +132,11 @@ export default function ChatPage() {
       </div>
 
       <input
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        onKeyDown={handleKey}
-        placeholder="Type message..."
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && sendMessage()}
         style={{ width: "75%" }}
       />
-
       <button onClick={sendMessage}>Send</button>
     </div>
   );
